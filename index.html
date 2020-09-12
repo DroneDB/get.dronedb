@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 __dirname=$(cd $(dirname "$0"); pwd -P)
 cd "${__dirname}"
@@ -9,23 +9,40 @@ cd "${__dirname}"
 #
 # This script is meant for quick & easy install via:
 #   $ curl -fsSL https://get.dronedb.app -o get-ddb.sh
-#   $ sh get-ddb.sh
+#   $ bash get-ddb.sh
 #
 # NOTE: Make sure to verify the contents of the script
 #       you downloaded matches the contents of install.sh
 #       located at https://github.com/DroneDB/DroneDB/scripts/linux_install_script.sh
 #       before executing.
 #
-# TODO: this needs to be updated automatically...
-
-LATEST_RELEASE="https://github.com/DroneDB/DroneDB/releases/download/v0.9.2/ddb-0.9.2-linux.tgz"
+# TODO: Find a way to ensure that the latest release url is the linux one :)
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
+install_package() {
+    REQUIRED_PKG="$@"
+    if [ $(dpkg-query -W -f='${Status}' $REQUIRED_PKG 2>/dev/null | grep -c "ok installed") -eq 0 ];
+    then
+        if (( $EUID != 0 )); then
+            echo "Please run as root to install missing package '$REQUIRED_PKG'"
+            exit 1
+        fi
+        
+        apt-get update;
+        apt-get install -y $REQUIRED_PKG;
+    fi
+}
+
 do_install() {
 	echo "# Executing DroneDB install script"
+
+    install_package curl
+    install_package jq
+
+    LATEST_RELEASE=$(curl --silent "https://api.github.com/repos/dronedb/dronedb/releases/latest" | jq -r '.assets[0].browser_download_url')
 
     echo "# Downloading $LATEST_RELEASE..."
     curl -fsSL $LATEST_RELEASE -o /tmp/ddb.tgz
